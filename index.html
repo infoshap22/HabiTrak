@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimal Habit Tracker</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#0f172a',
+                        cardBg: '#1e293b',
+                        cardHover: '#334155',
+                        accent: '#38bdf8'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.25); }
+            100% { transform: scale(1); }
+        }
+        .pop-anim {
+            animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="bg-darkBg text-slate-100 min-h-screen font-sans selection:bg-sky-500 selection:text-white flex flex-col justify-between">
+
+    <!-- Header -->
+    <header class="w-full max-w-2xl mx-auto px-4 pt-8 pb-4 flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                <i data-lucide="check-circle-2" class="text-sky-400 w-7 h-7"></i> Habit Flow
+            </h1>
+            <p id="current-date" class="text-sm text-slate-400 mt-0.5">Loading date...</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <button id="sound-toggle" title="Toggle Sound FX" class="p-2.5 rounded-xl bg-cardBg border border-slate-700/60 text-slate-300 hover:text-white hover:bg-cardHover transition-all">
+                <i data-lucide="volume-2" class="w-4 h-4" id="sound-icon"></i>
+            </button>
+            <button id="add-habit-btn" class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-sm transition-all shadow-lg shadow-sky-500/20 active:scale-95">
+                <i data-lucide="plus" class="w-4 h-4"></i> New Habit
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="w-full max-w-2xl mx-auto px-4 py-2 flex-1 space-y-4" id="habits-container">
+        <!-- Habits will be rendered here dynamically -->
+    </main>
+
+    <!-- Footer / Overall Stats -->
+    <footer class="w-full max-w-2xl mx-auto px-4 py-8 mt-auto">
+        <div class="bg-cardBg/60 border border-slate-800 rounded-2xl p-4 flex items-center justify-between text-sm">
+            <div class="flex items-center gap-3">
+                <div class="p-2.5 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                    <i data-lucide="trending-up" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <p class="font-medium text-slate-200">Today's Progress</p>
+                    <p id="progress-text" class="text-xs text-slate-400">0 of 0 completed</p>
+                </div>
+            </div>
+            <div class="w-32 bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                <div id="progress-bar" class="bg-sky-400 h-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+        </div>
+        <p class="text-center text-xs text-slate-500 mt-6">&copy; <span id="current-year"></span> Habit Flow. Local storage active.</p>
+    </footer>
+
+    <!-- Modal: Add / Edit Habit -->
+    <div id="habit-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-cardBg border border-slate-700/80 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div class="flex items-center justify-between">
+                <h3 id="modal-title" class="text-lg font-semibold text-white">Add New Habit</h3>
+                <button id="close-modal" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form id="habit-form" class="space-y-4">
+                <input type="hidden" id="habit-id">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 uppercase tracking-wider mb-1.5">Habit Name</label>
+                    <input type="text" id="habit-name-input" required placeholder="e.g., Morning Meditation" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 uppercase tracking-wider mb-1.5">Accent Color</label>
+                    <div class="flex gap-3 pt-1" id="color-picker">
+                        <button type="button" data-color="#38bdf8" class="w-8 h-8 rounded-full bg-sky-400 ring-2 ring-white ring-offset-2 ring-offset-cardBg transition-transform hover:scale-110"></button>
+                        <button type="button" data-color="#34d399" class="w-8 h-8 rounded-full bg-emerald-400 transition-transform hover:scale-110"></button>
+                        <button type="button" data-color="#f472b6" class="w-8 h-8 rounded-full bg-pink-400 transition-transform hover:scale-110"></button>
+                        <button type="button" data-color="#fbbf24" class="w-8 h-8 rounded-full bg-amber-400 transition-transform hover:scale-110"></button>
+                        <button type="button" data-color="#a78bfa" class="w-8 h-8 rounded-full bg-purple-400 transition-transform hover:scale-110"></button>
+                    </div>
+                </div>
+                <div class="flex items-center justify-end gap-3 pt-2">
+                    <button type="button" id="cancel-modal" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800 transition-colors">Cancel</button>
+                    <button type="submit" class="px-5 py-2 rounded-xl text-sm font-semibold bg-sky-500 hover:bg-sky-400 text-slate-950 transition-all shadow-lg shadow-sky-500/20">Save Habit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Application Logic -->
+    <script>
+        // State & Audio Setup
+        let soundEnabled = true;
+        let selectedColor = '#38bdf8';
+        
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSuccessChime() {
+            if (!soundEnabled) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(587.33, now); // D5
+            osc.frequency.exponentialRampToValueAtTime(880, now + 0.15); // A5
+            
+            gain.gain.setValueAtTime(0.12, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.start(now);
+            osc.stop(now + 0.35);
+        }
+
+        // Date Utilities
+        function getLocalDateString(date = new Date()) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function getLast7Days() {
+            const days = [];
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                days.push({
+                    dateStr: getLocalDateString(d),
+                    label: d.toLocaleDateString('en-US', { weekday: 'short' })[0], // S, M, T...
+                    fullDate: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                });
+            }
+            return days;
+        }
+
+        // Default Data Initialization
+        const defaultHabits = [
+            { id: 'h1', name: 'Drink 2L Water', color: '#38bdf8', history: {} },
+            { id: 'h2', name: 'Read 20 Pages', color: '#34d399', history: {} },
+            { id: 'h3', name: 'Exercise / Workout', color: '#f472b6', history: {} },
+            { id: 'h4', name: 'Meditate 10 Mins', color: '#fbbf24', history: {} },
+            { id: 'h5', name: 'Code / Build', color: '#a78bfa', history: {} }
+        ];
+
+        let habits = JSON.parse(localStorage.getItem('habit_flow_data')) || defaultHabits;
+
+        function saveHabits() {
+            localStorage.setItem('habit_flow_data', JSON.stringify(habits));
+        }
+
+        // Streak Calculation Logic
+        function calculateStreak(habitHistory) {
+            let streak = 0;
+            const today = new Date();
+            
+            // Check backwards starting from today or yesterday
+            for (let i = 0; i < 30; i++) {
+                const d = new Date();
+                d.setDate(today.getDate() - i);
+                const dateStr = getLocalDateString(d);
+                
+                if (habitHistory[dateStr]) {
+                    streak++;
+                } else {
+                    // If today is not checked yet, don't break streak immediately, check yesterday instead
+                    if (i === 0) continue;
+                    break;
+                }
+            }
+            return streak;
+        }
+
+        // Render UI
+        function renderApp() {
+            document.getElementById('current-year').textContent = new Date().getFullYear();
+            document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+            
+            const container = document.getElementById('habits-container');
+            container.innerHTML = '';
+
+            const last7Days = getLast7Days();
+            const todayStr = getLocalDateString();
+            let completedTodayCount = 0;
+
+            if (habits.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 bg-cardBg/40 border border-dashed border-slate-800 rounded-2xl space-y-3">
+                        <i data-lucide="clipboard-list" class="w-10 h-10 text-slate-600 mx-auto"></i>
+                        <p class="text-sm text-slate-400">No habits tracked yet. Create one to get started!</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                updateProgress(0, 0);
+                return;
+            }
+
+            habits.forEach(habit => {
+                const isTodayCompleted = !!habit.history[todayStr];
+                if (isTodayCompleted) completedTodayCount++;
+                const streak = calculateStreak(habit.history);
+
+                const card = document.createElement('div');
+                card.className = "bg-cardBg border border-slate-800 rounded-2xl p-5 hover:border-slate-700 transition-all shadow-sm space-y-4 group";
+
+                // Habit Header & Main Checkbox
+                let html = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3.5">
+                            <button onclick="toggleToday('${habit.id}')" class="w-8 h-8 rounded-xl flex items-center justify-center transition-all ${isTodayCompleted ? 'shadow-md pop-anim' : 'border border-slate-700 hover:border-slate-500 bg-slate-900/50'}" style="${isTodayCompleted ? `background-color: ${habit.color}; border-color: ${habit.color}; color: #0f172a;` : ''}">
+                                ${isTodayCompleted ? '<i data-lucide="check" class="w-5 h-5 stroke-[3]"></i>' : ''}
+                            </button>
+                            <div>
+                                <h3 class="font-semibold text-white tracking-tight text-base">${escapeHTML(habit.name)}</h3>
+                                <div class="flex items-center gap-2 mt-0.5">
+                                    <span class="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md bg-slate-900 text-amber-400 border border-slate-800">
+                                        <i data-lucide="flame" class="w-3.5 h-3.5 fill-amber-400 text-amber-400"></i> ${streak} day streak
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onclick="openEditModal('${habit.id}')" title="Edit Habit" class="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors">
+                                <i data-lucide="pencil" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="deleteHabit('${habit.id}')" title="Delete Habit" class="p-2 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition-colors">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 7-Day History Matrix -->
+                    <div class="grid grid-cols-7 gap-1.5 pt-2 border-t border-slate-800/80">
+                `;
+
+                last7Days.forEach(day => {
+                    const checked = !!habit.history[day.dateStr];
+                    html += `
+                        <button onclick="toggleDay('${habit.id}', '${day.dateStr}')" title="${day.fullDate}" class="flex flex-col items-center gap-1.5 p-1.5 rounded-xl transition-all ${checked ? 'bg-slate-800/80' : 'hover:bg-slate-800/40'}">
+                            <span class="text-[10px] font-semibold text-slate-400 uppercase">${day.label}</span>
+                            <div class="w-7 h-7 rounded-lg flex items-center justify-center transition-all ${checked ? 'shadow-sm' : 'bg-slate-900 border border-slate-800 text-transparent'}" style="${checked ? `background-color: ${habit.color}; color: #0f172a;` : ''}">
+                                <i data-lucide="check" class="w-3.5 h-3.5 stroke-[3]" style="${checked ? 'opacity: 1;' : 'opacity: 0;'}"></i>
+                            </div>
+                        </button>
+                    `;
+                });
+
+                html += `</div>`;
+                card.innerHTML = html;
+                container.appendChild(card);
+            });
+
+            updateProgress(completedTodayCount, habits.length);
+            lucide.createIcons();
+        }
+
+        function updateProgress(completed, total) {
+            const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+            document.getElementById('progress-text').textContent = `${completed} of ${total} completed`;
+            document.getElementById('progress-bar').style.width = `${percent}%`;
+        }
+
+        function toggleToday(habitId) {
+            const todayStr = getLocalDateString();
+            toggleDay(habitId, todayStr);
+        }
+
+        function toggleDay(habitId, dateStr) {
+            const habit = habits.find(h => h.id === habitId);
+            if (!habit) return;
+
+            if (habit.history[dateStr]) {
+                delete habit.history[dateStr];
+            } else {
+                habit.history[dateStr] = true;
+                if (dateStr === getLocalDateString()) {
+                    playSuccessChime();
+                }
+            }
+            saveHabits();
+            renderApp();
+        }
+
+        function deleteHabit(habitId) {
+            if (confirm('Are you sure you want to delete this habit?')) {
+                habits = habits.filter(h => h.id !== habitId);
+                saveHabits();
+                renderApp();
+            }
+        }
+
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+
+        // Modal Controls
+        const modal = document.getElementById('habit-modal');
+        const habitForm = document.getElementById('habit-form');
+        
+        document.getElementById('add-habit-btn').addEventListener('click', () => {
+            document.getElementById('modal-title').textContent = 'Add New Habit';
+            document.getElementById('habit-id').value = '';
+            document.getElementById('habit-name-input').value = '';
+            selectedColor = '#38bdf8';
+            updateColorPickerUI();
+            modal.classList.remove('hidden');
+            document.getElementById('habit-name-input').focus();
+        });
+
+        function openEditModal(habitId) {
+            const habit = habits.find(h => h.id === habitId);
+            if (!habit) return;
+            document.getElementById('modal-title').textContent = 'Edit Habit';
+            document.getElementById('habit-id').value = habit.id;
+            document.getElementById('habit-name-input').value = habit.name;
+            selectedColor = habit.color || '#38bdf8';
+            updateColorPickerUI();
+            modal.classList.remove('hidden');
+            document.getElementById('habit-name-input').focus();
+        }
+
+        function closeModal() {
+            modal.classList.add('hidden');
+        }
+
+        document.getElementById('close-modal').addEventListener('click', closeModal);
+        document.getElementById('cancel-modal').addEventListener('click', closeModal);
+
+        // Color Picker
+        const colorButtons = document.querySelectorAll('#color-picker button');
+        colorButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                selectedColor = btn.getAttribute('data-color');
+                updateColorPickerUI();
+            });
+        });
+
+        function updateColorPickerUI() {
+            colorButtons.forEach(btn => {
+                const color = btn.getAttribute('data-color');
+                if (color === selectedColor) {
+                    btn.classList.add('ring-2', 'ring-white', 'ring-offset-2', 'ring-offset-cardBg');
+                } else {
+                    btn.classList.remove('ring-2', 'ring-white', 'ring-offset-2', 'ring-offset-cardBg');
+                }
+            });
+        }
+
+        habitForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const id = document.getElementById('habit-id').value;
+            const name = document.getElementById('habit-name-input').value.trim();
+            if (!name) return;
+
+            if (id) {
+                const habit = habits.find(h => h.id === id);
+                if (habit) {
+                    habit.name = name;
+                    habit.color = selectedColor;
+                }
+            } else {
+                const newHabit = {
+                    id: 'h_' + Date.now(),
+                    name: name,
+                    color: selectedColor,
+                    history: {}
+                };
+                habits.push(newHabit);
+            }
+
+            saveHabits();
+            closeModal();
+            renderApp();
+        });
+
+        // Sound Toggle
+        const soundToggleBtn = document.getElementById('sound-toggle');
+        const soundIcon = document.getElementById('sound-icon');
+        soundToggleBtn.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            soundToggleBtn.classList.toggle('bg-sky-500/10', soundEnabled);
+            soundToggleBtn.classList.toggle('border-sky-500/30', soundEnabled);
+            soundToggleBtn.classList.toggle('text-sky-400', soundEnabled);
+            soundIcon.setAttribute('data-lucide', soundEnabled ? 'volume-2' : 'volume-x');
+            lucide.createIcons();
+        });
+
+        // Initial Load
+        renderApp();
+    </script>
+</body>
+</html>
